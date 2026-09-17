@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Selected implementation code from Adrian Grițcan's technical demo portfolio.">
+  <title>Code Viewer — Adrian Grițcan</title>
+  <link rel="stylesheet" href="v3-pages.css">
+</head>
+<body class="code-body">
+<header class="topbar code-top">
+  <a class="brand" href="index.html"><span>AG</span> Adrian Grițcan</a>
+  <nav><a href="for-agencies.html">For agencies</a><a href="backend-demo.html">Backend demo</a><a href="case-studies.html">Case studies</a></nav>
+  <a class="pill" href="mailto:mirolvlada180@gmail.com">Contact</a>
+</header>
+<main class="code-layout">
+  <aside class="file-tree">
+    <div class="tree-title">SELECTED SOURCE</div>
+    <button class="file-btn active" data-file="file0"><span>●</span>Cloudflare Worker API</button><button class="file-btn" data-file="file1"><span>●</span>D1 schema.sql</button><button class="file-btn" data-file="file2"><span>●</span>CRM frontend state</button><button class="file-btn" data-file="file3"><span>●</span>Lead qualifier</button><button class="file-btn" data-file="file4"><span>●</span>Workflow runner</button>
+    <div class="tree-note">These are real excerpts used by the portfolio demos. The backend folder in the downloadable project contains the complete Worker + D1 package.</div>
+  </aside>
+  <section class="editor">
+    <div class="editor-bar">
+      <span>portfolio / source</span>
+      <a href="backend-demo.html">Live backend ↗</a>
+    </div>
+    <div class="code-scroll"><pre class="code-panel active" id="file0"><code>const JSON_HEADERS = { &quot;content-type&quot;: &quot;application/json; charset=utf-8&quot; };
+
+function json(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { ...JSON_HEADERS, ...extraHeaders },
+  });
+}
+
+function corsHeaders(request, env) {
+  const origin = request.headers.get(&quot;Origin&quot;) || &quot;&quot;;
+  const allowed = env.ALLOWED_ORIGIN || &quot;*&quot;;
+  const allowOrigin = allowed === &quot;*&quot; || origin === allowed ? (origin || &quot;*&quot;) : allowed;
+
+  return {
+    &quot;access-control-allow-origin&quot;: allowOrigin,
+    &quot;access-control-allow-methods&quot;: &quot;GET,POST,PATCH,DELETE,OPTIONS&quot;,
+    &quot;access-control-allow-headers&quot;: &quot;Content-Type&quot;,
+    &quot;access-control-max-age&quot;: &quot;86400&quot;,
+    &quot;vary&quot;: &quot;Origin&quot;,
+  };
+}
+
+function cleanText(value, max = 180) {
+  return String(value ?? &quot;&quot;).trim().slice(0, max);
+}
+
+function validStage(stage) {
+  return [&quot;New&quot;, &quot;Qualified&quot;, &quot;Proposal&quot;, &quot;Won&quot;, &quot;Lost&quot;].includes(stage);
+}
+
+function leadPayload(body) {
+  const payload = {
+    name: cleanText(body.name, 100),
+    company: cleanText(body.company, 120),
+    email: cleanText(body.email, 160),
+    source: cleanText(body.source || &quot;Website&quot;, 80),
+    value: Number(body.value || 0),
+    stage: cleanText(body.stage || &quot;New&quot;, 30),
+    owner: cleanText(body.owner || &quot;Adrian&quot;, 80),
+  };
+
+  if (!payload.name || !payload.company || !payload.email) {
+    return { error: &quot;name, company and email are required&quot; };
+  }
+  if (!payload.email.includes(&quot;@&quot;)) return { error: &quot;email is invalid&quot; };
+  if (!Number.isFinite(payload.value) || payload.value &lt; 0 || payload.value &gt; 10000000) {
+    return { error: &quot;value must be a positive number&quot; };
+  }
+  if (!validStage(payload.stage)) return { error: &quot;invalid stage&quot; };
+
+  return { payload };
+}
+
+async function listLeads(env, url) {
+  const stage = cleanText(url.searchParams.get(&quot;stage&quot;) || &quot;&quot;, 30);
+  const q = cleanText(url.searchParams.get(&quot;q&quot;) || &quot;&quot;, 100).toLowerCase();
+
+  const result = await env.DB.prepare(
+    `SELECT id, name, company, email, source, value, stage, owner, created_at, updated_at
+     FROM leads
+     ORDER BY id DESC
+     LIMIT 100`
+  ).all();
+
+  let rows = result.results || [];
+  if (stage) rows = rows.filter((row) =&gt; row.stage === stage);
+  if (q) {
+    rows = rows.filter((row) =&gt;
+      `${row.name} ${row.company} ${row.email}`.toLowerCase().includes(q)
+    );
+  }
+
+  const pipelineValue = rows
+    .filter((row) =&gt; row.stage !== &quot;Lost&quot;)
+    .reduce((sum, row) =&gt; sum + Number(row.value || 0), 0);
+
+  return {
+    leads: rows,
+    meta: {
+      count: rows.length,
+      pipeline_value: pipelineValue,
+      qualified: rows.filter((row) =&gt; row.stage === &quot;Qualified&quot;).length,
+      won: rows.filter((row) =&gt; row.stage === &quot;Won&quot;).length,
+    },
+  };
+}
+
+async function createLead(request, env) {
+  const body = await request.json().catch(() =&gt; null);
+  if (!body) return { error: &quot;invalid JSON body&quot;, status: 400 };
+
+  const parsed = leadPayload(body);
+  if (parsed.error) return { error: parsed.error, status: 400 };
+
+  const p = parsed.payload;
+  const result = await env.DB.prepare(
+    `INSERT INTO leads (name, company, email, source, value, stage, owner)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(p.name, p.company, p.email, p.source, p.value, p.stage, p.owner).run();
+
+  // Keep the public demo bounded.
+  await env.DB.prepare(`
+    DELETE FROM leads
+    WHERE id NOT IN (SELECT id FROM leads ORDER BY id DESC LIMIT 100)
+  `).run();
+
+  const lead = await env.DB.prepare(
+    `SELECT id, name, company, email, source, value, stage, owner, created_at, updated_at
+     FROM leads WHERE id = ?`
+  ).bind(result.meta.last_row_id).first();
+
+  return { lead, status: 201 };
+}
+
+async function updateLead(request, env, id) {
+  const body = await request.json().catch(() =&gt; null);
+  if (!body) return { error: &quot;invalid JSON body&quot;, status: 400 };
+
+  const current = await env.DB.prepare(`SELECT * FROM leads WHERE id = ?`).bind(id).first();
+  if (!current) return { error: &quot;lead not found&quot;, status: 404 };
+
+  const next = {
+    name: cleanText(body.name ?? current.name, 100),
+    company: cleanText(body.company ?? current.company, 120),
+    email: cleanText(body.email ?? current.email, 160),
+    source: cleanText(body.source ?? current.source, 80),
+    value: Number(body.value ?? current.value),
+    stage: cleanText(body.stage ?? current.stage, 30),
+    owner: cleanText(body.owner ?? current.owner, 80),
+  };
+
+  const parsed = leadPayload(next);
+  if (parsed.error) return { error: parsed.error, status: 400 };
+
+  const p = parsed.payload;
+  await env.DB.prepare(
+    `UPDATE leads
+     SET name=?, company=?, email=?, source=?, value=?, stage=?, owner=?,
+         updated_at=CURRENT_TIMESTAMP
+     WHERE id=?`
+  ).bind(p.name, p.company, p.email, p.source, p.value, p.stage, p.owner, id).run();
+
+  const lead = await env.DB.prepare(
+    `SELECT id, name, company, email, source, value, stage, owner, created_at, updated_at
+     FROM leads WHERE id = ?`
+  ).bind(id).first();
+
+  return { lead, status: 200 };
+}
+
+async function deleteLead(env, id) {
+  const result = await env.DB.prepare(`DELETE FROM leads WHERE id = ?`).bind(id).run();
+  if (!result.meta.changes) return { error: &quot;lead not found&quot;, status: 404 };
+  return { ok: true, status: 200 };
+}
+
+export default {
+  async fetch(request, env) {
+    const cors = corsHeaders(request, env);
+    if (request.method === &quot;OPTIONS&quot;) return new Response(null, { headers: cors });
+
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, &quot;&quot;) || &quot;/&quot;;
+
+    try {
+      if (path === &quot;/&quot; || path === &quot;/health&quot;) {
+        return json({
+          ok: true,
+          service: &quot;adrian-portfolio-api&quot;,
+          database: &quot;cloudflare-d1&quot;,
+          timestamp: new Date().toISOString(),
+        }, 200, cors);
+      }
+
+      if (path === &quot;/api/leads&quot; &amp;&amp; request.method === &quot;GET&quot;) {
+        return json(await listLeads(env, url), 200, cors);
+      }
+
+      if (path === &quot;/api/leads&quot; &amp;&amp; request.method === &quot;POST&quot;) {
+        const result = await createLead(request, env);
+        return json(result.error ? { error: result.error } : { lead: result.lead }, result.status, cors);
+      }
+
+      const match = path.match(/^\/api\/leads\/(\d+)$/);
+      if (match &amp;&amp; request.method === &quot;PATCH&quot;) {
+        const result = await updateLead(request, env, Number(match[1]));
+        return json(result.error ? { error: result.error } : { lead: result.lead }, result.status, cors);
+      }
+
+      if (match &amp;&amp; request.method === &quot;DELETE&quot;) {
+        const result = await deleteLead(env, Number(match[1]));
+        return json(result.error ? { error: result.error } : { ok: true }, result.status, cors);
+      }
+
+      return json({ error: &quot;not found&quot; }, 404, cors);
+    } catch (error) {
+      console.error(error);
+      return json({ error: &quot;internal server error&quot; }, 500, cors);
+    }
+  },
+};
+</code></pre><pre class="code-panel" id="file1"><code>DROP TABLE IF EXISTS leads;
+
+CREATE TABLE leads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  company TEXT NOT NULL,
+  email TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT &#x27;Website&#x27;,
+  value REAL NOT NULL DEFAULT 0 CHECK (value &gt;= 0),
+  stage TEXT NOT NULL DEFAULT &#x27;New&#x27;
+    CHECK (stage IN (&#x27;New&#x27;,&#x27;Qualified&#x27;,&#x27;Proposal&#x27;,&#x27;Won&#x27;,&#x27;Lost&#x27;)),
+  owner TEXT NOT NULL DEFAULT &#x27;Adrian&#x27;,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_leads_stage ON leads(stage);
+CREATE INDEX idx_leads_created_at ON leads(created_at);
+
+INSERT INTO leads (name, company, email, source, value, stage, owner) VALUES
+(&#x27;Maya Chen&#x27;, &#x27;Northwind Labs&#x27;, &#x27;maya@northwind.example&#x27;, &#x27;Website&#x27;, 3200, &#x27;Qualified&#x27;, &#x27;Adrian&#x27;),
+(&#x27;Daniel Moore&#x27;, &#x27;Frame Studio&#x27;, &#x27;daniel@frame.example&#x27;, &#x27;Referral&#x27;, 1800, &#x27;New&#x27;, &#x27;Adrian&#x27;),
+(&#x27;Sofia Marin&#x27;, &#x27;Orbit Commerce&#x27;, &#x27;sofia@orbit.example&#x27;, &#x27;Paid social&#x27;, 5600, &#x27;Proposal&#x27;, &#x27;Mila&#x27;),
+(&#x27;Liam Scott&#x27;, &#x27;Oak &amp; Co&#x27;, &#x27;liam@oak.example&#x27;, &#x27;Outbound&#x27;, 2400, &#x27;Won&#x27;, &#x27;Mila&#x27;),
+(&#x27;Emma Novak&#x27;, &#x27;Kite Systems&#x27;, &#x27;emma@kite.example&#x27;, &#x27;Website&#x27;, 4100, &#x27;Qualified&#x27;, &#x27;Adrian&#x27;),
+(&#x27;Noah Reed&#x27;, &#x27;Brightpath&#x27;, &#x27;noah@brightpath.example&#x27;, &#x27;Referral&#x27;, 1300, &#x27;Lost&#x27;, &#x27;Mila&#x27;),
+(&#x27;Ava Wilson&#x27;, &#x27;Signal Works&#x27;, &#x27;ava@signal.example&#x27;, &#x27;Outbound&#x27;, 6200, &#x27;Proposal&#x27;, &#x27;Adrian&#x27;),
+(&#x27;Leo Martin&#x27;, &#x27;Fieldhouse&#x27;, &#x27;leo@fieldhouse.example&#x27;, &#x27;Website&#x27;, 1000, &#x27;Won&#x27;, &#x27;Mila&#x27;);
+</code></pre><pre class="code-panel" id="file2"><code>const STORAGE_KEY = &#x27;northstar_crm_demo_v2&#x27;;
+
+let leads = JSON.parse(localStorage.getItem(STORAGE_KEY)) || seedData;
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+}
+
+function changeStage(id, nextStage) {
+  const lead = leads.find(item =&gt; item.id === id);
+  if (!lead) return;
+
+  lead.stage = nextStage;
+  save();
+  render();
+}
+
+function pipelineValue() {
+  return leads
+    .filter(item =&gt; item.stage !== &#x27;Lost&#x27;)
+    .reduce((sum, item) =&gt; sum + Number(item.value || 0), 0);
+}
+
+// Production version:
+// browser persistence -&gt; REST API
+// local seed data       -&gt; database
+// no login              -&gt; authenticated users + roles
+// client validation     -&gt; server validation + audit log</code></pre><pre class="code-panel" id="file3"><code>// Deterministic qualification state.
+// A production implementation can replace / augment the rule layer with an LLM API.
+let state = {};
+
+function advance(step, value) {
+  if (step === 1) state.goal = value;
+  if (step === 2) state.company = value;
+  if (step === 3) state.volume = value;
+
+  if (step === 4) {
+    state.handoff = value;
+
+    const lead = {
+      goal: state.goal,
+      company_type: state.company,
+      monthly_volume: state.volume,
+      handoff: state.handoff,
+      qualification: &#x27;warm&#x27;,
+      next_action: &#x27;route_to_sales&#x27;
+    };
+
+    renderStructuredOutput(lead);
+  }
+}</code></pre><pre class="code-panel" id="file4"><code>const events = [
+  &#x27;lead.received&#x27;,
+  &#x27;lead.validated&#x27;,
+  &#x27;crm.contact.upserted&#x27;,
+  &#x27;lead.owner.assigned&#x27;,
+  &#x27;followup.queued&#x27;
+];
+
+function executeWorkflow() {
+  let index = 0;
+
+  function step() {
+    if (index &gt;= events.length) {
+      log(&#x27;workflow.completed&#x27;);
+      return;
+    }
+
+    setActiveStage(index);
+    log(events[index]);
+    index += 1;
+    setTimeout(step, 650);
+  }
+
+  log(&#x27;workflow.started&#x27;);
+  step();
+}
+
+// Production version:
+// each stage maps to an actual webhook/API action,
+// with retries, idempotency, logging and error handling.</code></pre></div>
+  </section>
+</main>
+<script>
+document.querySelectorAll('.file-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.file-btn,.code-panel').forEach(x => x.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.file).classList.add('active');
+  });
+});
+</script>
+</body></html>

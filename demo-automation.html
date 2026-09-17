@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automation Flow — Demo</title><link rel="stylesheet" href="demo.css"></head>
+<body class="auto-page">
+<header class="demo-nav dark"><a href="index.html">← Portfolio</a><span>SELF-INITIATED DEMO / WORKFLOW AUTOMATION</span><div><button id="run">Run workflow</button> <button id="resetFlow">Reset</button></div></header>
+<main class="auto-shell">
+<section class="auto-copy"><span class="kicker">OBSERVABLE AUTOMATION</span><h1>From inbound lead to assigned sales owner.</h1><p>This simulator makes each workflow transition visible. In a production build, the same states map to webhooks, validation, CRM API calls, assignment rules and notification jobs.</p></section>
+<section class="flow-board">
+<div class="flow-node" data-i="0"><b>01</b><span>Website form</span><small>Receive payload</small></div><i>→</i>
+<div class="flow-node" data-i="1"><b>02</b><span>Validate</span><small>Required fields + duplicate rule</small></div><i>→</i>
+<div class="flow-node" data-i="2"><b>03</b><span>CRM</span><small>Create / update record</small></div><i>→</i>
+<div class="flow-node" data-i="3"><b>04</b><span>Assign</span><small>Route by service / region</small></div><i>→</i>
+<div class="flow-node" data-i="4"><b>05</b><span>Follow-up</span><small>Queue notification</small></div>
+</section>
+<section class="auto-bottom"><div class="log"><b>Workflow event log</b><div id="log">Ready to run.</div></div><div class="score"><span>Workflow stages</span><strong>5</strong></div><div class="score"><span>External network calls in demo</span><strong>0</strong></div></section>
+</main>
+<script>
+const run=document.getElementById('run'), reset=document.getElementById('resetFlow'), nodes=[...document.querySelectorAll('.flow-node')], log=document.getElementById('log');
+const events=['lead.received','lead.validated','crm.contact.upserted','lead.owner.assigned','followup.queued'];
+let timerIds=[];
+function clearAll(){timerIds.forEach(clearTimeout);timerIds=[];nodes.forEach(n=>n.classList.remove('active','done'));log.textContent='Ready to run.';run.disabled=false}
+function execute(){clearAll();run.disabled=true;log.textContent='workflow.started';let i=0;
+ function step(){if(i>0){nodes[i-1].classList.remove('active');nodes[i-1].classList.add('done')}
+   if(i<nodes.length){nodes[i].classList.add('active');log.innerHTML+='<br>→ '+events[i];i++;timerIds.push(setTimeout(step,650))}
+   else{run.disabled=false;log.innerHTML+='<br><b>✓ workflow.completed</b>'}}
+ step();
+}
+run.onclick=execute;reset.onclick=clearAll;
+</script></body></html>

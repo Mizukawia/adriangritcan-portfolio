@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Luma Dental — Demo</title><link rel="stylesheet" href="demo.css"></head>
+<body class="dental-page">
+<header class="demo-nav"><a href="index.html">← Portfolio</a><span>SELF-INITIATED DEMO / LUMA DENTAL</span><a class="nav-button" href="case-studies.html#dental">Technical details</a></header>
+<main>
+<section class="d-hero">
+  <div><span class="kicker">MODERN DENTISTRY · HUMAN CARE</span><h1>Confident smiles.<br><em>Thoughtful care.</em></h1><p>A fictional service brand used to demonstrate responsive conversion design and a lead-capture handoff.</p><button onclick="document.getElementById('lead').scrollIntoView({behavior:'smooth'})">Test lead form</button><small>Demo only — no real clinic is represented.</small></div>
+  <div class="portrait-card"><div class="tooth">✦</div><div class="stat"><b>Responsive build</b><span>mobile + desktop layout</span></div></div>
+</section>
+<section class="service-strip"><span>Implants</span><span>Invisalign</span><span>Whitening</span><span>Emergency care</span></section>
+<section class="benefits"><div><span>01</span><h2>Clear hierarchy</h2><p>One primary conversion action throughout the page.</p></div><div><span>02</span><h2>Responsive structure</h2><p>Layouts reflow cleanly for small screens.</p></div><div><span>03</span><h2>Integration-ready</h2><p>The lead payload is separated from the UI so it can be sent to an API/webhook.</p></div></section>
+<section class="lead" id="lead"><div><span class="kicker">TEST THE FORM</span><h2>Create a demo lead.</h2><p>No data leaves your browser. The event box shows the payload that a production build could send to a CRM, webhook or notification service.</p></div><form id="leadForm"><input required id="name" placeholder="Your name"><input required id="phone" placeholder="Phone number"><select id="service"><option>General consultation</option><option>Implants</option><option>Whitening</option><option>Invisalign</option></select><button>Submit demo lead</button><div id="success"></div><div class="event-box" id="eventBox">Waiting for form submission…</div></form></section>
+</main>
+<script>
+const form=document.getElementById('leadForm'), success=document.getElementById('success'), eventBox=document.getElementById('eventBox');
+form.addEventListener('submit',e=>{
+  e.preventDefault();
+  const payload={name:document.getElementById('name').value.trim(),phone:document.getElementById('phone').value.trim(),service:document.getElementById('service').value,source:'demo-landing-page',created_at:new Date().toISOString()};
+  success.innerHTML='✓ Demo lead created. In production this payload would be POSTed to an API/webhook.';
+  eventBox.textContent='lead.created '+JSON.stringify(payload,null,2);
+  form.reset();
+});
+</script></body></html>

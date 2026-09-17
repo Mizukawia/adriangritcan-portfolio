@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Interactive REST API demo UI for Adrian Grițcan's Cloudflare Worker + D1 backend project.">
+  <title>Backend API Demo — Adrian Grițcan</title>
+  <link rel="stylesheet" href="v3-pages.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><span>AG</span> Adrian Grițcan</a>
+  <nav><a href="for-agencies.html">For agencies</a><a href="code.html">Code</a><a href="case-studies.html">Case studies</a></nav>
+  <a class="pill" href="code.html">View backend code</a>
+</header>
+<main>
+<section class="page-hero backend-hero">
+  <div class="kicker">LIVE BACKEND · CLOUDFLARE WORKER + D1</div>
+  <h1>Cloudflare Worker + D1 REST API.</h1>
+  <p>This page is connected to a live Cloudflare Worker + D1 backend and performs real database reads/writes through HTTP.</p>
+  <div class="architecture-line"><span>Browser UI</span><i>→</i><span>Worker REST API</span><i>→</i><span>D1 database</span></div>
+</section>
+
+<section class="section api-console">
+  <div class="section-title"><span>LIVE CONNECTION</span><h2>Connect this UI to the deployed API.</h2></div>
+  <div class="connect-grid">
+    <div class="connection-box">
+      <label>API base URL</label>
+      <div class="url-row"><input id="apiUrl" placeholder="https://adrian-portfolio-api.account.workers.dev"><button id="connectBtn">Connect</button></div>
+      <div class="status" id="status"><i></i><span>Not connected yet</span></div>
+      <p>The live portfolio API is preconfigured. You can still replace the URL here to test another deployment.</p>
+    </div>
+    <div class="endpoint-box">
+      <b>API endpoints</b>
+      <code>GET /health</code>
+      <code>GET /api/leads</code>
+      <code>POST /api/leads</code>
+      <code>PATCH /api/leads/:id</code>
+      <code>DELETE /api/leads/:id</code>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title"><span>DATABASE CLIENT</span><h2>Read and create leads over HTTP.</h2></div>
+  <div class="api-grid">
+    <div class="api-card">
+      <div class="api-card-head"><b>GET /api/leads</b><button id="refreshBtn">Refresh</button></div>
+      <div id="apiLeads" class="api-results"><p>Connect the API to load database records.</p></div>
+    </div>
+    <form class="api-card" id="createForm">
+      <div class="api-card-head"><b>POST /api/leads</b><span>Create record</span></div>
+      <input required name="name" placeholder="Contact name">
+      <input required name="company" placeholder="Company">
+      <input required type="email" name="email" placeholder="Email">
+      <input required type="number" min="0" name="value" placeholder="Deal value (€)">
+      <select name="stage"><option>New</option><option>Qualified</option><option>Proposal</option><option>Won</option></select>
+      <button class="api-submit">POST lead</button>
+      <pre id="postResult">Waiting for request…</pre>
+    </form>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-title"><span>WHAT THIS PROVES</span><h2>The portfolio now includes both sides of the request.</h2></div>
+  <div class="cards three">
+    <article><b>Frontend</b><h3>Interactive client</h3><p>Browser UI sends real fetch requests and renders server responses.</p></article>
+    <article><b>Backend</b><h3>Worker API</h3><p>Routing, validation, CORS handling, CRUD operations and structured errors.</p></article>
+    <article><b>Database</b><h3>D1 persistence</h3><p>SQL schema, constraints, seed records, indexes and persistent storage.</p></article>
+  </div>
+</section>
+</main>
+<footer>Live backend: <a href="https://adrian-portfolio-api.techpage.workers.dev" target="_blank" rel="noopener">API health</a> · <a href="code.html">view source</a></footer>
+
+<script>
+const DEFAULT_API = "https://adrian-portfolio-api.techpage.workers.dev";
+const apiInput = document.getElementById('apiUrl');
+const statusEl = document.getElementById('status');
+const leadsEl = document.getElementById('apiLeads');
+const postResult = document.getElementById('postResult');
+apiInput.value = localStorage.getItem('portfolio_api_url') || DEFAULT_API;
+
+function base() { return apiInput.value.trim().replace(/\/+$/, ''); }
+function setStatus(ok, text) {
+  statusEl.className = 'status ' + (ok ? 'ok' : 'bad');
+  statusEl.querySelector('span').textContent = text;
+}
+async function connect() {
+  if (!base()) { setStatus(false, 'Enter the deployed API URL first'); return; }
+  try {
+    const r = await fetch(base() + '/health');
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || 'Health check failed');
+    localStorage.setItem('portfolio_api_url', base());
+    setStatus(true, 'Connected to ' + data.service + ' · D1 backend');
+    await loadLeads();
+  } catch (e) {
+    setStatus(false, 'Connection failed: ' + e.message);
+  }
+}
+async function loadLeads() {
+  if (!base()) return;
+  leadsEl.innerHTML = '<p>Loading…</p>';
+  try {
+    const r = await fetch(base() + '/api/leads');
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Request failed');
+    const rows = data.leads || [];
+    leadsEl.innerHTML = rows.length ? rows.slice(0, 12).map(x => `
+      <div class="api-lead">
+        <span><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.company)} · ${escapeHtml(x.email)}</small></span>
+        <em>€${Number(x.value || 0).toLocaleString()}</em>
+        <strong>${escapeHtml(x.stage)}</strong>
+      </div>`).join('') : '<p>No records returned.</p>';
+  } catch (e) {
+    leadsEl.innerHTML = '<p class="error-text">GET failed: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+document.getElementById('connectBtn').onclick = connect;
+document.getElementById('refreshBtn').onclick = loadLeads;
+document.getElementById('createForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!base()) { postResult.textContent = 'Connect the API first.'; return; }
+  const fd = new FormData(e.target);
+  const payload = {
+    name: fd.get('name'), company: fd.get('company'), email: fd.get('email'),
+    value: Number(fd.get('value')), stage: fd.get('stage'), source: 'Portfolio API demo', owner: 'Adrian'
+  };
+  postResult.textContent = 'Sending…';
+  try {
+    const r = await fetch(base() + '/api/leads', {
+      method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    postResult.textContent = JSON.stringify(data, null, 2);
+    if (r.ok) { e.target.reset(); await loadLeads(); }
+  } catch (err) {
+    postResult.textContent = 'POST failed: ' + err.message;
+  }
+};
+if (apiInput.value) connect();
+</script>
+</body>
+</html>

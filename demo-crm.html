@@ -1,0 +1,90 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Northstar CRM — Demo</title><link rel="stylesheet" href="demo.css"></head>
+<body class="crm-page">
+<header class="demo-nav"><a href="index.html">← Portfolio</a><span>SELF-INITIATED DEMO / CRM DASHBOARD</span><a class="nav-button" href="case-studies.html#crm">Technical details</a></header>
+<div class="crm-shell">
+<aside class="crm-sidebar"><div class="crm-logo">NORTHSTAR CRM</div><p>Interactive prototype.<br>Data stays in your browser.</p><div class="crm-nav"><span class="active">Pipeline</span><span>Contacts</span><span>Activity</span><span>Reports</span></div></aside>
+<main class="crm-content">
+  <div class="crm-titlebar"><div><h1>Sales pipeline</h1><p>Create leads, change stages, filter records and refresh — changes persist locally.</p></div><button id="addLead">+ Add lead</button></div>
+  <section class="kpi-grid">
+    <div class="kpi"><span>Total leads</span><b id="kpiLeads">0</b></div>
+    <div class="kpi"><span>Pipeline value</span><b id="kpiValue">€0</b></div>
+    <div class="kpi"><span>Qualified</span><b id="kpiQualified">0</b></div>
+    <div class="kpi"><span>Won</span><b id="kpiWon">0</b></div>
+  </section>
+  <div class="toolbar">
+    <input id="search" placeholder="Search name, company or email…">
+    <select id="stageFilter"><option value="">All stages</option><option>New</option><option>Qualified</option><option>Proposal</option><option>Won</option><option>Lost</option></select>
+    <button id="resetData" class="secondary-btn">Reset demo data</button>
+  </div>
+  <div class="table-wrap">
+    <table class="lead-table">
+      <thead><tr><th>Lead</th><th>Company</th><th>Source</th><th>Value</th><th>Stage</th><th>Owner</th></tr></thead>
+      <tbody id="leadRows"></tbody>
+    </table>
+  </div>
+  <p class="crm-footnote">Demo architecture: browser state + localStorage. Production version would use authenticated users, a REST API, server-side validation and a database.</p>
+</main>
+</div>
+
+<div class="modal" id="modal">
+  <form class="modal-card" id="leadForm">
+    <h2>Add demo lead</h2>
+    <div class="modal-grid">
+      <input required name="name" placeholder="Contact name">
+      <input required name="company" placeholder="Company">
+      <input required type="email" name="email" placeholder="Email">
+      <input required type="number" min="0" name="value" placeholder="Deal value (€)">
+      <select name="source"><option>Website</option><option>Referral</option><option>Outbound</option><option>Paid social</option></select>
+      <select name="stage"><option>New</option><option>Qualified</option><option>Proposal</option><option>Won</option></select>
+      <input required name="owner" placeholder="Owner" value="Adrian">
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary-btn" id="cancelModal">Cancel</button><button class="primary-btn">Create lead</button></div>
+  </form>
+</div>
+
+<script>
+const SEED=[
+ {id:1,name:'Maya Chen',company:'Northwind Labs',email:'maya@northwind.example',source:'Website',value:3200,stage:'Qualified',owner:'Adrian'},
+ {id:2,name:'Daniel Moore',company:'Frame Studio',email:'daniel@frame.example',source:'Referral',value:1800,stage:'New',owner:'Adrian'},
+ {id:3,name:'Sofia Marin',company:'Orbit Commerce',email:'sofia@orbit.example',source:'Paid social',value:5600,stage:'Proposal',owner:'Mila'},
+ {id:4,name:'Liam Scott',company:'Oak & Co',email:'liam@oak.example',source:'Outbound',value:2400,stage:'Won',owner:'Mila'},
+ {id:5,name:'Emma Novak',company:'Kite Systems',email:'emma@kite.example',source:'Website',value:4100,stage:'Qualified',owner:'Adrian'},
+ {id:6,name:'Noah Reed',company:'Brightpath',email:'noah@brightpath.example',source:'Referral',value:1300,stage:'Lost',owner:'Mila'},
+ {id:7,name:'Ava Wilson',company:'Signal Works',email:'ava@signal.example',source:'Outbound',value:6200,stage:'Proposal',owner:'Adrian'},
+ {id:8,name:'Leo Martin',company:'Fieldhouse',email:'leo@fieldhouse.example',source:'Website',value:1000,stage:'Won',owner:'Mila'}
+];
+const KEY='northstar_crm_demo_v2';
+let leads=load();
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||structuredClone(SEED)}catch(e){return structuredClone(SEED)}}
+function save(){localStorage.setItem(KEY,JSON.stringify(leads))}
+const rows=document.getElementById('leadRows'), search=document.getElementById('search'), filter=document.getElementById('stageFilter');
+function euro(n){return new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)}
+function updateKPIs(){
+ document.getElementById('kpiLeads').textContent=leads.length;
+ document.getElementById('kpiValue').textContent=euro(leads.filter(x=>!['Lost'].includes(x.stage)).reduce((a,b)=>a+Number(b.value||0),0));
+ document.getElementById('kpiQualified').textContent=leads.filter(x=>x.stage==='Qualified').length;
+ document.getElementById('kpiWon').textContent=leads.filter(x=>x.stage==='Won').length;
+}
+function render(){
+ const q=search.value.toLowerCase().trim(), stage=filter.value;
+ const shown=leads.filter(x=>(!stage||x.stage===stage)&&(!q||[x.name,x.company,x.email].join(' ').toLowerCase().includes(q)));
+ rows.innerHTML=shown.map(x=>`<tr>
+ <td><b>${escapeHtml(x.name)}</b><br><small>${escapeHtml(x.email)}</small></td>
+ <td>${escapeHtml(x.company)}</td>
+ <td><span class="source-pill">${escapeHtml(x.source)}</span></td>
+ <td class="money">${euro(x.value)}</td>
+ <td><select class="stage-select" data-id="${x.id}">${['New','Qualified','Proposal','Won','Lost'].map(s=>`<option ${s===x.stage?'selected':''}>${s}</option>`).join('')}</select></td>
+ <td>${escapeHtml(x.owner)}</td></tr>`).join('');
+ rows.querySelectorAll('.stage-select').forEach(el=>el.onchange=()=>{const item=leads.find(x=>x.id==el.dataset.id);item.stage=el.value;save();updateKPIs();render()});
+ updateKPIs();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+search.oninput=render;filter.onchange=render;
+const modal=document.getElementById('modal'), form=document.getElementById('leadForm');
+document.getElementById('addLead').onclick=()=>modal.classList.add('open');
+document.getElementById('cancelModal').onclick=()=>modal.classList.remove('open');
+modal.onclick=e=>{if(e.target===modal)modal.classList.remove('open')};
+form.onsubmit=e=>{e.preventDefault();const fd=new FormData(form);leads.unshift({id:Date.now(),name:fd.get('name'),company:fd.get('company'),email:fd.get('email'),value:Number(fd.get('value')),source:fd.get('source'),stage:fd.get('stage'),owner:fd.get('owner')});save();form.reset();form.owner.value='Adrian';modal.classList.remove('open');render()};
+document.getElementById('resetData').onclick=()=>{leads=structuredClone(SEED);save();search.value='';filter.value='';render()};
+render();
+</script></body></html>

@@ -1,0 +1,10 @@
+{
+  "name": "adriangritcan-portfolio",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.24.4"
+  }
+}

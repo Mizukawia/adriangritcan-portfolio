@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Technical Case Studies — Adrian Grițcan</title>
+  <link rel="stylesheet" href="case-studies.css">
+</head>
+<body>
+<header class="top"><a href="index.html">← Portfolio</a><span>TECHNICAL CASE STUDIES</span><a href="mailto:mirolvlada180@gmail.com">Contact</a></header>
+<main>
+<section class="intro">
+  <span class="kicker">BUILD NOTES, NOT MARKETING CLAIMS</span>
+  <h1>What each demo proves — and what would change in production.</h1>
+  <p>All four portfolio projects are self-initiated demos. This page separates what is actually implemented from the production architecture I would use for a client project.</p>
+</section>
+
+<section class="case" id="dental">
+  <div class="num">01</div>
+  <div class="case-head"><span>Conversion web</span><h2>Service landing page + lead capture</h2><p>A responsive acquisition page with a working form, client-side validation and an observable submission event.</p></div>
+  <div class="case-grid">
+    <article><h3>Brief</h3><p>Create a simple service website that makes the primary conversion action obvious on both mobile and desktop.</p></article>
+    <article><h3>Implemented</h3><ul><li>Responsive layout</li><li>CTA navigation</li><li>Required-field validation</li><li>Lead payload creation</li><li>Visible event log</li></ul></article>
+    <article><h3>Production extension</h3><ul><li>POST lead to CRM/API</li><li>Server-side validation</li><li>Spam protection</li><li>Analytics events</li><li>Transactional notification</li></ul></article>
+    <article><h3>Acceptance test</h3><ul><li>Works at 390px and desktop</li><li>Empty form cannot submit</li><li>Payload contains required fields</li><li>User receives success state</li></ul></article>
+  </div>
+  <div class="arch"><span>Browser form</span><i>→</i><span>Validation</span><i>→</i><span>Webhook/API</span><i>→</i><span>CRM</span><i>→</i><span>Notification</span></div>
+  <div class="links"><a href="demo-dental.html">Open demo ↗</a><a href="code.html">Open code viewer ↗</a></div>
+</section>
+
+<section class="case" id="ai">
+  <div class="num">02</div>
+  <div class="case-head"><span>Qualification flow</span><h2>AI-ready lead qualification assistant</h2><p>The demo intentionally uses deterministic JavaScript rather than pretending to call an AI model. It shows the interaction and structured-output layer.</p></div>
+  <div class="case-grid">
+    <article><h3>Brief</h3><p>Collect useful sales context without making the user fill a long static form.</p></article>
+    <article><h3>Implemented</h3><ul><li>Multi-step state flow</li><li>Dynamic answer choices</li><li>Lead object creation</li><li>Qualification label</li><li>JSON-style summary</li></ul></article>
+    <article><h3>Production extension</h3><ul><li>LLM API for free-text input</li><li>Guardrails / system prompt</li><li>CRM create/update</li><li>Human handoff</li><li>Conversation logging</li></ul></article>
+    <article><h3>Acceptance test</h3><ul><li>Each choice advances state</li><li>All answers appear in summary</li><li>Reset returns clean state</li><li>No hidden external data transfer</li></ul></article>
+  </div>
+  <div class="arch"><span>User</span><i>→</i><span>Conversation UI</span><i>→</i><span>LLM / rules</span><i>→</i><span>Structured lead</span><i>→</i><span>CRM</span></div>
+  <div class="links"><a href="demo-ai.html">Open demo ↗</a><a href="code.html">Open code viewer ↗</a></div>
+</section>
+
+<section class="case" id="automation">
+  <div class="num">03</div>
+  <div class="case-head"><span>Automation</span><h2>Observable lead-routing workflow</h2><p>A workflow simulator designed to make automation logic visible instead of hiding it behind a black box.</p></div>
+  <div class="case-grid">
+    <article><h3>Brief</h3><p>Show how one inbound lead can move through validation, CRM creation, ownership assignment and follow-up.</p></article>
+    <article><h3>Implemented</h3><ul><li>Five workflow states</li><li>Sequential transitions</li><li>Event log</li><li>Run/reset controls</li><li>Visible completion state</li></ul></article>
+    <article><h3>Production extension</h3><ul><li>Webhook trigger</li><li>Retry/error handling</li><li>CRM API calls</li><li>Queue for async jobs</li><li>Alerting and audit log</li></ul></article>
+    <article><h3>Acceptance test</h3><ul><li>Stages run in order</li><li>Log matches stage state</li><li>Button locks during run</li><li>Workflow can be run again</li></ul></article>
+  </div>
+  <div class="arch"><span>Trigger</span><i>→</i><span>Validate</span><i>→</i><span>CRM action</span><i>→</i><span>Assignment</span><i>→</i><span>Follow-up</span></div>
+  <div class="links"><a href="demo-automation.html">Open demo ↗</a><a href="code.html">Open code viewer ↗</a></div>
+</section>
+
+<section class="case" id="crm">
+  <div class="num">04</div>
+  <div class="case-head"><span>Internal web app</span><h2>Interactive lead CRM dashboard</h2><p>This demo goes beyond a landing page: it keeps application state, calculates live KPIs and persists changes in the browser.</p></div>
+  <div class="case-grid">
+    <article><h3>Brief</h3><p>Give a small sales team one interface to create leads, search records, change stages and monitor pipeline totals.</p></article>
+    <article><h3>Implemented</h3><ul><li>Create lead</li><li>Search + stage filter</li><li>Stage updates</li><li>Pipeline totals</li><li>Local persistence</li><li>Reset demo dataset</li></ul></article>
+    <article><h3>Production extension</h3><ul><li>REST backend</li><li>PostgreSQL / managed DB</li><li>User authentication</li><li>Role permissions</li><li>Server validation</li><li>Audit log</li></ul></article>
+    <article><h3>Acceptance test</h3><ul><li>Added leads appear immediately</li><li>KPIs recalculate</li><li>Filters combine correctly</li><li>State survives refresh</li><li>Reset restores demo data</li></ul></article>
+  </div>
+  <div class="arch"><span>Web app</span><i>→</i><span>REST API</span><i>→</i><span>Auth</span><i>→</i><span>Database</span><i>→</i><span>Integrations</span></div>
+  <div class="links"><a href="demo-crm.html">Open app ↗</a><a href="code.html">Open code viewer ↗</a></div>
+</section>
+</main>
+<footer>Adrian Grițcan · Demo portfolio · 2026</footer>
+</body></html>

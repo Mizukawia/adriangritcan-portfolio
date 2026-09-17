@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lead Qualification — Demo</title><link rel="stylesheet" href="demo.css"></head>
+<body class="ai-page">
+<header class="demo-nav dark"><a href="index.html">← Portfolio</a><span>SELF-INITIATED DEMO / LEAD QUALIFICATION</span><a class="nav-button" href="case-studies.html#ai">Technical details</a></header>
+<main class="ai-shell">
+<section class="ai-copy"><span class="kicker">AI-READY SALES FLOW</span><h1>Turn a conversation into structured sales context.</h1><p>This demo uses deterministic JavaScript, not a live LLM. It demonstrates the conversation, state and structured-output layer that can be connected to an AI model and CRM in production.</p>
+<div class="features"><span>✓ Multi-step state</span><span>✓ Structured output</span><span>✓ Clear production handoff</span></div></section>
+<section class="chat-panel">
+<div class="chat-head"><span><i></i> Qualification demo</span><button class="reset-btn" id="reset">Reset</button></div>
+<div id="messages" class="messages"></div>
+<div id="choices" class="choices"></div>
+</section>
+</main>
+<script>
+let state={};
+const msgs=document.getElementById('messages'), choices=document.getElementById('choices');
+function add(text,type){const d=document.createElement('div');d.className='m '+type;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight}
+function setChoices(items,step){choices.innerHTML='';items.forEach(label=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>advance(step,label);choices.appendChild(b)})}
+function start(){state={};msgs.innerHTML='';add('Hi — what are you looking to improve?','bot');setChoices(['More qualified leads','Automate repetitive work','Improve website conversion'],1)}
+function advance(step,value){add(value,'human');
+ if(step===1){state.goal=value;setTimeout(()=>{add('What type of company is this for?','bot');setChoices(['B2B service','E-commerce','Local business'],2)},260)}
+ if(step===2){state.company=value;setTimeout(()=>{add('What monthly lead volume are you working with?','bot');setChoices(['Under 50','50–200','200+'],3)},260)}
+ if(step===3){state.volume=value;setTimeout(()=>{add('Which handoff would be most useful?','bot');setChoices(['CRM + sales owner','Email summary','Telegram / Slack alert'],4)},260)}
+ if(step===4){state.handoff=value;choices.innerHTML='';setTimeout(()=>{add('Done — here is the structured lead object a production workflow could send downstream.','bot');const summary=document.createElement('div');summary.className='summary';const out={goal:state.goal,company_type:state.company,monthly_volume:state.volume,handoff:state.handoff,qualification:'warm',next_action:'route_to_sales'};summary.innerHTML='<b>Structured output</b><pre>'+JSON.stringify(out,null,2)+'</pre>';msgs.appendChild(summary);msgs.scrollTop=msgs.scrollHeight},260)}
+}
+document.getElementById('reset').onclick=start;start();
+</script></body></html>
