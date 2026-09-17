@@ -12,3 +12,5 @@ https://adriangritcan.techpage.workers.dev/
 - Deploy command: `npx wrangler deploy`
 
 The `wrangler.jsonc` name intentionally matches the existing Cloudflare Worker.
+
+Contact email: `gritcan.adrian.dev@gmail.com`
