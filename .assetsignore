@@ -1,4 +1,13 @@
+# Do not upload build/development files as static assets
+node_modules/
+node_modules/**
+.wrangler/
+.wrangler/**
+.git/
+.git/**
 wrangler.jsonc
 package.json
+package-lock.json
+bun.lock
+bun.lockb
 README-GITHUB.md
-.git*
