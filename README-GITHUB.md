@@ -14,3 +14,4 @@ https://adriangritcan.techpage.workers.dev/
 The `wrangler.jsonc` name intentionally matches the existing Cloudflare Worker.
 
 Contact email: `gritcan.adrian.dev@gmail.com`
+deploy fix
